@@ -9,6 +9,8 @@
 	The effect can be correctly estimated even if we do not include
 	period dummies in the regression, but the standard errors are
 	greater because of the misspecification. */
+
+*** Simulate data
 clear
 set obs 100
 gen group_ID    = _n
@@ -33,10 +35,21 @@ gen post_dummy = t > 3
 gen treatXpost_dummy = treat_dummy*post_dummy
 gen outcome = treatXpost_effect*treatXpost_dummy + ///
 					treatment_effect*treat_dummy + time_FEs + error
+
+*** Summarize the data
+tabstat outcome time_FEs, by(t) stat(mean)
+tabstat outcome time_FEs if treat_dummy == 0, by(t) stat(mean)
+tabstat outcome time_FEs treatment_effect treatXpost_effect ///
+		if treat_dummy == 1, by(t) stat(mean)
 					
-*** First, let's have a look at the time fixed effects
-tabstat time_FEs, by(t)
+*** Analysis part. First, run regression with the correct specification
 reg outcome treatXpost_dummy treat_dummy i.t
+
+**  Note also how the time FEs aren't correctly estimated. Each dummy is
+*		off by the amount of the intercept. _cons in turn is equal to the
+*		omitted dummy for period t = 1. The omission is due to collinearity
+*		and the intercept is taken out of each non-omitted dummy.
+tabstat time_FEs, by(t)
 
 *** Then, compare std. err. of treatXpost_dummy if we don't include time
 *		fixed effects but instead a post dummy
