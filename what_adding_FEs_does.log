@@ -1,0 +1,211 @@
+---------------------------------------------------------------------------------------------------------------------------------------------------------
+      name:  <unnamed>
+       log:  C:\Users\Jesper\Research\STATA-example-code\what_adding_FEs_does.log
+  log type:  text
+ opened on:  17 Feb 2022, 11:43:56
+
+. *** Simulate data
+. clear
+
+. set obs 100
+number of observations (_N) was 0, now 100
+
+. gen group_ID    = _n
+
+. gen treat_dummy = _n > _N/2
+
+. 
+. expand 2
+(100 observations created)
+
+. bysort group_ID: gen post = _n
+
+. 
+. expand 3
+(400 observations created)
+
+. bysort group_ID (post): gen t = _n
+
+. 
+. scalar sd_eps = 0.001
+
+. gen error = sd_eps*rnormal()
+
+. 
+. bysort t: gen tmp = rnormal() if _n == 1
+(594 missing values generated)
+
+. by     t: gegen time_FEs = max(tmp)
+
+. drop tmp
+
+. 
+. gen treatment_effect  = 1
+
+. gen treatXpost_effect = 2
+
+. gen post_dummy = t > 3
+
+. gen treatXpost_dummy = treat_dummy*post_dummy
+
+. gen outcome = treatXpost_effect*treatXpost_dummy + ///
+>                                         treatment_effect*treat_dummy + time_FEs + error
+
+. 
+. *** Summarize the data
+. tabstat outcome time_FEs, by(t) stat(mean)
+
+Summary statistics: mean
+  by categories of: t 
+
+       t |   outcome  time_FEs
+---------+--------------------
+       1 |  2.571166  2.071274
+       2 | -.0137106 -.5136579
+       3 |  .1444559 -.3555231
+       4 |   4.03194  2.531997
+       5 |  1.743957  .2438969
+       6 |  2.100848   .600811
+---------+--------------------
+   Total |  1.763109  .7631329
+------------------------------
+
+. tabstat outcome time_FEs if treat_dummy == 0, by(t) stat(mean)
+
+Summary statistics: mean
+  by categories of: t 
+
+       t |   outcome  time_FEs
+---------+--------------------
+       1 |  2.071307  2.071274
+       2 | -.5140396 -.5136579
+       3 | -.3554852 -.3555231
+       4 |  2.531928  2.531997
+       5 |  .2437894  .2438969
+       6 |  .6007851   .600811
+---------+--------------------
+   Total |  .7630475  .7631329
+------------------------------
+
+. tabstat outcome time_FEs treatment_effect treatXpost_effect ///
+>                 if treat_dummy == 1, by(t) stat(mean)
+
+Summary statistics: mean
+  by categories of: t 
+
+       t |   outcome  time_FEs  treatm~t  treatX~t
+---------+----------------------------------------
+       1 |  3.071024  2.071274         1         2
+       2 |  .4866185 -.5136579         1         2
+       3 |  .6443971 -.3555231         1         2
+       4 |  5.531953  2.531997         1         2
+       5 |  3.244124  .2438969         1         2
+       6 |  3.600911   .600811         1         2
+---------+----------------------------------------
+   Total |  2.763171  .7631329         1         2
+--------------------------------------------------
+
+.                                         
+. *** Analysis part. First, run regression with the correct specification
+. reg outcome treatXpost_dummy treat_dummy i.t
+
+      Source |       SS           df       MS      Number of obs   =       600
+-------------+----------------------------------   F(7, 592)       >  99999.00
+       Model |   1919.2967         7  274.185242   Prob > F        =    0.0000
+    Residual |  .000648357       592  1.0952e-06   R-squared       =    1.0000
+-------------+----------------------------------   Adj R-squared   =    1.0000
+       Total |  1919.29735       599  3.20416919   Root MSE        =    .00105
+
+----------------------------------------------------------------------------------
+         outcome |      Coef.   Std. Err.      t    P>|t|     [95% Conf. Interval]
+-----------------+----------------------------------------------------------------
+treatXpost_dummy |   2.000076   .0001709  1.2e+04   0.000     1.999741    2.000412
+     treat_dummy |   1.000086   .0001208  8276.02   0.000     .9998483    1.000323
+                 |
+               t |
+              2  |  -2.584876    .000148 -1.7e+04   0.000    -2.585167   -2.584585
+              3  |   -2.42671    .000148 -1.6e+04   0.000       -2.427   -2.426419
+              4  |   .4607366   .0001709  2696.01   0.000      .460401    .4610722
+              5  |  -1.827247   .0001709 -1.1e+04   0.000    -1.827582   -1.826911
+              6  |  -1.470356   .0001709 -8603.83   0.000    -1.470691    -1.47002
+                 |
+           _cons |   2.071123   .0001208  1.7e+04   0.000     2.070885     2.07136
+----------------------------------------------------------------------------------
+
+. 
+. **  Note also how the time FEs aren't correctly estimated. Each dummy is
+. *               off by the amount of the intercept. _cons in turn is equal to the
+. *               omitted dummy for period t = 1. The omission is due to collinearity
+. *               and the intercept is taken out of each non-omitted dummy.
+. tabstat time_FEs, by(t)
+
+Summary for variables: time_FEs
+     by categories of: t 
+
+       t |      mean
+---------+----------
+       1 |  2.071274
+       2 | -.5136579
+       3 | -.3555231
+       4 |  2.531997
+       5 |  .2438969
+       6 |   .600811
+---------+----------
+   Total |  .7631329
+--------------------
+
+. 
+. *** Then, compare std. err. of treatXpost_dummy if we don't include time
+. *               fixed effects but instead a post dummy
+. reg outcome treatXpost_dummy treat_dummy post_dummy
+
+      Source |       SS           df       MS      Number of obs   =       600
+-------------+----------------------------------   F(3, 596)       =    328.80
+       Model |  1196.40082         3  398.800272   Prob > F        =    0.0000
+    Residual |  722.896529       596  1.21291364   R-squared       =    0.6234
+-------------+----------------------------------   Adj R-squared   =    0.6215
+       Total |  1919.29735       599  3.20416919   Root MSE        =    1.1013
+
+----------------------------------------------------------------------------------
+         outcome |      Coef.   Std. Err.      t    P>|t|     [95% Conf. Interval]
+-----------------+----------------------------------------------------------------
+treatXpost_dummy |   2.000076   .1798454    11.12   0.000     1.646868    2.353284
+     treat_dummy |   1.000086   .1271699     7.86   0.000       .75033    1.249841
+      post_dummy |   .7249066   .1271699     5.70   0.000      .475151    .9746622
+           _cons |   .4005941   .0899227     4.45   0.000     .2239903     .577198
+----------------------------------------------------------------------------------
+
+. 
+. 
+. *** Case of no time_FEs but a post effect
+. gen post_effect = -0.5*post_dummy 
+
+. replace outcome = outcome - time_FEs + post_effect
+(600 real changes made)
+
+. reg outcome treatXpost_dummy treat_dummy post_dummy
+
+      Source |       SS           df       MS      Number of obs   =       600
+-------------+----------------------------------   F(3, 596)       >  99999.00
+       Model |   787.59675         3   262.53225   Prob > F        =    0.0000
+    Residual |   .00064951       596  1.0898e-06   R-squared       =    1.0000
+-------------+----------------------------------   Adj R-squared   =    1.0000
+       Total |  787.597399       599  1.31485375   Root MSE        =    .00104
+
+----------------------------------------------------------------------------------
+         outcome |      Coef.   Std. Err.      t    P>|t|     [95% Conf. Interval]
+-----------------+----------------------------------------------------------------
+treatXpost_dummy |   2.000076   .0001705  1.2e+04   0.000     1.999741    2.000411
+     treat_dummy |   1.000086   .0001205  8296.56   0.000     .9998489    1.000322
+      post_dummy |  -.4999641   .0001205 -4147.63   0.000    -.5002008   -.4997274
+           _cons |  -.0001034   .0000852    -1.21   0.226    -.0002708     .000064
+----------------------------------------------------------------------------------
+
+. *   Then the std. err. of treatXpost_dummy is small as in the correctly
+. *               specified case
+. log close
+      name:  <unnamed>
+       log:  C:\Users\Jesper\Research\STATA-example-code\what_adding_FEs_does.log
+  log type:  text
+ closed on:  17 Feb 2022, 11:43:56
+---------------------------------------------------------------------------------------------------------------------------------------------------------

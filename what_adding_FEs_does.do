@@ -10,6 +10,8 @@
 	period dummies in the regression, but the standard errors are
 	greater because of the misspecification. */
 
+cap log close
+log using "./what_adding_FEs_does.log", replace
 *** Simulate data
 clear
 set obs 100
@@ -62,3 +64,4 @@ replace outcome = outcome - time_FEs + post_effect
 reg outcome treatXpost_dummy treat_dummy post_dummy
 *   Then the std. err. of treatXpost_dummy is small as in the correctly
 *		specified case
+log close
