@@ -1,6 +1,6 @@
-
 /*
-
+	This script shows an example how to use scatteri and a second y axis
+	to shade a region in a graph.
 */
 
 webuse union, clear
