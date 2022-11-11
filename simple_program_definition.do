@@ -29,3 +29,5 @@ testProgram hello world length, an_option("whaaat?")
 
 testProgram hello world length if foreign == 1
 disp "`r(output_in_r)'"
+
+reg price mpg
