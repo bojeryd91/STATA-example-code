@@ -18,6 +18,10 @@ set obs 100
 gen group_ID    = _n
 gen treat_dummy = _n > _N/2
 
+*	Add a group FE
+scalar sd_group_FEs = 1.0
+gen group_FE = sd_group_FEs*rnormal()
+
 expand 2
 bysort group_ID: gen post = _n
 
@@ -36,7 +40,7 @@ gen treatXpost_effect = 2
 gen post_dummy = t > 3
 gen treatXpost_dummy = treat_dummy*post_dummy
 gen outcome = treatXpost_effect*treatXpost_dummy + ///
-					treatment_effect*treat_dummy + time_FEs + error
+					treatment_effect*treat_dummy + time_FEs + group_FE + error
 
 *** Summarize the data
 tabstat outcome time_FEs, by(t) stat(mean)
@@ -64,4 +68,9 @@ replace outcome = outcome - time_FEs + post_effect
 reg outcome treatXpost_dummy treat_dummy post_dummy
 *   Then the std. err. of treatXpost_dummy is small as in the correctly
 *		specified case
+
+*** Compare with case of including group FEs or not (test small sd_group_FEs
+*	to see the difference in std. err. of treatXpost_dummy)
+reg  outcome treatXpost_dummy treat_dummy post_dummy
+areg outcome treatXpost_dummy             post_dummy, absorb(group_ID)
 log close
