@@ -48,9 +48,9 @@ tabstat outcome time_FEs if treat_dummy == 0, by(t) stat(mean)
 tabstat outcome time_FEs treatment_effect treatXpost_effect ///
 		if treat_dummy == 1, by(t) stat(mean)
 					
-*** Analysis part. First, run regression with the correct specification
-reg outcome treatXpost_dummy treat_dummy i.t
-
+*** Analysis part. First, run regression with the *correct* specification
+ reg outcome treatXpost_dummy treat_dummy i.t
+areg outcome treatXpost_dummy treat_dummy, absorb(t)
 **  Note also how the time FEs aren't correctly estimated. Each dummy is
 *		off by the amount of the intercept. _cons in turn is equal to the
 *		omitted dummy for period t = 1. The omission is due to collinearity
@@ -73,4 +73,17 @@ reg outcome treatXpost_dummy treat_dummy post_dummy
 *	to see the difference in std. err. of treatXpost_dummy)
 reg  outcome treatXpost_dummy treat_dummy post_dummy
 areg outcome treatXpost_dummy             post_dummy, absorb(group_ID)
+
+*** Does controlling for an independent covariate help?
+gen x2 = rnormal()
+sum x2
+gen outcome2 = outcome + x2
+
+reg  outcome  treatXpost_dummy treat_dummy post_dummy
+reg  outcome2 treatXpost_dummy treat_dummy post_dummy
+reg  outcome2 treatXpost_dummy treat_dummy post_dummy x2
+* Yes, it does. Adding x2 to outcome increases confidence bands, and
+* controlling for it restores them to the previous bands
+
+
 log close
